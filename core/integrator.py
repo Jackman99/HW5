@@ -1,9 +1,18 @@
+# import sys
+# import os
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import numpy as np
+from core.operators import Operators
+from core.fields import Fields
+from solvers import LinearSolvers
+from utils.boundary_conditions import apply_velocity_bc, apply_pressure_bc
+
 
 class TimeIntegrator:
     def __init__(self, fields, operators):
         self.fields = fields
         self.ops = operators
+        self.solvers = LinearSolvers(fields.grid)
 
     def predict_intermediate_cell_centered_velocity(self):
         """
@@ -36,7 +45,9 @@ class TimeIntegrator:
         a_p = (1 / dt) + (a_e + a_w + a_n + a_s)
 
         # Solve for u*, v*
-        u_star, v_star, _, _, _ = self.ops.gs_for_velocity(a_e, a_w, a_n, a_s, a_p, explicit_term, initial_guess)
+        u_star, v_star, _, _, _ = self.solvers.gauss_seidel_velocity(
+            a_e, a_w, a_n, a_s, a_p, explicit_term, initial_guess, apply_velocity_bc
+        )
 
         return u_star, v_star
 
@@ -68,7 +79,9 @@ class TimeIntegrator:
         a_p = -2.0 * (1.0 / dx**2 + 1.0 / dy**2)
 
         self.fields.p_prev = self.fields.p.copy()
-        self.fields.p, _, _ = self.ops.gs_for_pressure(a_e, a_w, a_n, a_s, a_p, rhs_p, self.fields.p_prev) 
+        self.fields.p, _, _ = self.solvers.gauss_seidel_pressure(
+            a_e, a_w, a_n, a_s, a_p, rhs_p, self.fields.p_prev, apply_pressure_bc
+        ) 
 
     def correct_cell_center_velocity(self, u_star, v_star): # TODO CHECK THESE ESPECAILLY HOW PRESSURE GRAD is computed
         """
@@ -110,7 +123,7 @@ class TimeIntegrator:
         div_uv = self.ops.divergence(u, v)
         return np.max(np.abs(div_uv))
 
-    def advance_one_step(self):
+    def advance(self):
         """
         Perform one full fractional-step integration step.
         Returns: max divergence (to check incompressibility).

@@ -1,40 +1,45 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from core.grid import Grid
-from core.fields import Fields
-from core.operators import Operators
-from core.integrator import TimeIntegrator
 import numpy as np
+import os
+from Domain.grid import Grid
+from Domain.fields import Fields
+from operators import Operators
+from time_integrators import TimeIntegrator
 
+# Parameters to sweep
+reynolds_numbers = [100, 1000]
+grid_sizes = [128]
+Lx, Ly = 1.0, 1.0
+dt = 0.005
+num_steps = 5000
 
-# Config
-REYNOLDS_NUMBERS = [100, 1000]
-GRID_SIZES = [32]
-LX, LY = 1.0, 1.0
-DT = 0.005
-NUM_STEPS = 5000
-OUTPUT_DIR = "nse_results"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# Create output directory
+output_dir = "nse_results"
+os.makedirs(output_dir, exist_ok=True)
 
-for Re in REYNOLDS_NUMBERS:
-    for N in GRID_SIZES:
+# Loop over all combinations of Re and grid size
+for Re in reynolds_numbers:
+    for N in grid_sizes:
         print(f"Running simulation for Re = {Re}, Grid = {N}x{N}")
 
-        grid = Grid(N, N, LX, LY, Re, DT)
+        # Initialize components
+        grid = Grid(N, N, Lx, Ly, Re, dt)
         fields = Fields(grid)
         ops = Operators(grid)
         integrator = TimeIntegrator(fields, ops)
 
-        for step in range(NUM_STEPS):
-            max_div = integrator.advance()
+        # Time integration loop
+        for step in range(num_steps):
+            max_div = integrator.advance_one_step()
             if step % 100 == 0:
                 print(f"  Step {step}, Max Divergence: {max_div:.2e}")
 
+        # Crop ghost cells for output
         u = fields.u[1:-1, 1:-1]
         v = fields.v[1:-1, 1:-1]
         p = fields.p[1:-1, 1:-1]
 
-        filepath = os.path.join(OUTPUT_DIR, f"Re{int(Re)}_N{N}.npz")
-        np.savez_compressed(filepath, u=u, v=v, p=p, Re=Re, N=N, dt=DT)
+        # Save results
+        filename = f"Re{int(Re)}_N{N}.npz"
+        filepath = os.path.join(output_dir, filename)
+        np.savez_compressed(filepath, u=u, v=v, p=p, Re=Re, N=N, dt=dt)
         print(f"Saved results to {filepath}")

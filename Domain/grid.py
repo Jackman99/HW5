@@ -1,6 +1,4 @@
 ''' This module defines the parameters of a grid for 2D simulations'''
-import numpy as np
-import matplotlib.pyplot as plt
 
 class Grid:
     '''This class represents a 2D grid for fluid simulations.
